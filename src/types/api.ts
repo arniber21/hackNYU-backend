@@ -114,10 +114,11 @@ export namespace Recipe {
     difficulty: string;
     nutritionalInfo: {
       calories: number;
-      protein?: number;
-      carbs?: number;
-      fat?: number;
+      protein: number;
+      carbs: number;
+      fat: number;
     };
+    image: string;
   }
 }
 

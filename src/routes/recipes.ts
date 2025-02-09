@@ -296,20 +296,33 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
             request.body.maxCookingTime
           );
           
-          // Save generated recipe to database
+          // Transform AI response to match database schema
+          const dbRecipe = {
+            name: recipeData.name,
+            ingredients: JSON.stringify(recipeData.ingredients),
+            steps: recipeData.instructions.join('\n'),
+            image: recipeData.image,
+            authorId: userId,
+            // Add any other required fields from your schema
+          };
+
+          // Save to database with proper schema
           const recipe = await prisma.recipe.create({
-            data: {
-              ...recipeData,
-              authorId: userId
-            }
+            data: dbRecipe
           });
 
-          server.log.info('Recipe generated successfully:', { recipeId: recipe.id });
-          return recipe;
+          server.log.info('Recipe saved to database:', { recipeId: recipe.id });
+          
+          // Return the full recipe data to frontend
+          return {
+            ...recipeData,
+            id: recipe.id,
+            authorId: userId
+          };
         } catch (error) {
-          server.log.error('Recipe generation error:', error);
+          server.log.error('Recipe generation or save error:', error);
           return reply.status(500).send({ 
-            error: 'Failed to generate recipe',
+            error: 'Failed to generate or save recipe',
             details: error instanceof Error ? error.message : 'Unknown error'
           });
         }
