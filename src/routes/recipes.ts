@@ -296,19 +296,16 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
             request.body.maxCookingTime
           );
           
-          // Transform AI response to match database schema
-          const dbRecipe = {
-            name: recipeData.name,
-            ingredients: JSON.stringify(recipeData.ingredients),
-            steps: recipeData.instructions.join('\n'),
-            image: recipeData.image,
-            authorId: userId,
-            // Add any other required fields from your schema
-          };
-
-          // Save to database with proper schema
+          // Save to database with proper relations
           const recipe = await prisma.recipe.create({
-            data: dbRecipe
+            data: {
+              name: recipeData.name,
+              ingredients: JSON.stringify(recipeData.ingredients),
+              steps: recipeData.instructions.join('\n'),
+              image: recipeData.image,
+              authorId: userId,
+              viewedByUserId: userId
+            }
           });
 
           server.log.info('Recipe saved to database:', { recipeId: recipe.id });
@@ -322,8 +319,7 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
         } catch (error) {
           server.log.error('Recipe generation or save error:', error);
           return reply.status(500).send({ 
-            error: 'Failed to generate or save recipe',
-            details: error instanceof Error ? error.message : 'Unknown error'
+            error: 'Failed to generate or save recipe'
           });
         }
       } catch (error) {
@@ -373,7 +369,7 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
         where: { id },
         data: {
           favoritedBy: {
-            disconnect: { id: userId }
+            disconnect: true
           }
         }
       });
@@ -398,6 +394,29 @@ export default async function recipeRoutes(server: FastifyInstance, prisma: Pris
       });
 
       return recommendations;
+    }
+  });
+
+  // Add endpoint to fetch user's recipe history
+  server.get('/recipes/history', {
+    onRequest: [server.authenticate],
+    handler: async (request, reply) => {
+      const userId = request.user!.userId;
+      
+      const history = await prisma.recipe.findMany({
+        where: {
+          viewedByUserId: userId
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        include: {
+          savedBy: true,
+          favoritedBy: true
+        }
+      });
+
+      return history;
     }
   });
 } 
